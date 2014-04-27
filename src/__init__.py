@@ -765,7 +765,7 @@ Type 'e' to open emacs or 'V' to open vim to %s: %s" %
                 ret_code = self.p.poll()
                 if debug:
                     print "ret_code: " + str(ret_code)
-                if ret_code != None:
+                if ret_code not in (None, 0):
                     if debug:
                         print "NOOOOO"
                     print "subprocess died with return code: " + repr(ret_code)
