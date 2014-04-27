@@ -217,7 +217,7 @@ class PhpMultiliner:
         ls = [l for l in ls if l.find("PHP Startup:") == -1]
         l = "".join(ls)
         if l:
-            if l.find("unexpected $end") != -1:
+            if l.find("unexpected end") != -1:
                 return self.incomplete, ""
             return self.syntax_error, l
         return self.complete, ""
@@ -246,11 +246,7 @@ class PhpMultiliner:
 
 
 class ProblemStartingPhp(Exception):
-    def __init__(self,
-                 file_name=None,
-                 line_num=None,
-                 stdout_lines=None,
-                 stderr_lines=None):
+    def __init__(self, file_name=None, line_num=None, stdout_lines=None, stderr_lines=None):
         self.file_name = file_name
         self.line_num = line_num
         self.stdout_lines = stdout_lines
@@ -317,8 +313,8 @@ class LoadCtags(Thread):
         self.phpsh_state.function_signatures = {}
 
     def run(self):
+        tags_file_path = None
         try:
-            tags_file_path = None
             try:
                 tags_file_path = ctags.find_tags_file()
             except ctags.CantFindTagsFile, e:
@@ -749,7 +745,7 @@ Type 'e' to open emacs or 'V' to open vim to %s: %s" %
             else:
                 out = sys.stdout
                 err = sys.stderr
-                # wait for signal that php command is done
+            # wait for signal that php command is done
             # keep checking for death
             out_buff = ["", ""]
             buffer_size = 4096
@@ -805,7 +801,7 @@ Type 'e' to open emacs or 'V' to open vim to %s: %s" %
                                     err.write(l)
                             out_buff[out_buff_i] = \
                                 out_buff[out_buff_i][last_nl_pos + 1:]
-                    # at this point either:
+                # at this point either:
                 #  the php instance died
                 #  select timed out
                 l = self.comm_file.readline()
@@ -1046,7 +1042,7 @@ Type 'e' to open emacs or 'V' to open vim to %s: %s" %
         # shutdown php, if it doesn't exit in 5s, kill -9
         if alarm:
             signal.signal(signal.SIGALRM, sigalrm_handler)
-            # if we have fatal-restart prevention, the child process can't be waited
+        # if we have fatal-restart prevention, the child process can't be waited
         #  on since it's no longer a child of this process
         try:
             self.p.stdout.close()
