@@ -93,11 +93,11 @@ PHP_RESERVED_WORDS = [
     "return",
     "print",
     "unset",
-    ]
+]
 
 
 def help_message():
-   return """\
+    return """\
 -- Help --
 Type php commands and they will be evaluted each time you hit enter. Ex:
 php> $msg = "hello world"
@@ -150,6 +150,7 @@ See phpsh -h for invocation options.
     q     Quit (ctrl-D also quits)
 """
 
+
 def do_sugar(line):
     line = line.lstrip()
     if line.startswith("="):
@@ -158,12 +159,15 @@ def do_sugar(line):
         line += ";"
     return line
 
+
 def line_encode(line):
     return cu.multi_sub({"\n": "\\n", "\\": "\\\\"}, line) + "\n"
+
 
 def inc_args(s):
     """process a string of includes to a set of them"""
     return set([inc.strip() for inc in s.split(" ") if inc.strip()])
+
 
 def xdebug_loaded():
     """checks if Xdebug is already loaded"""
@@ -173,17 +177,19 @@ def xdebug_loaded():
     except OSError:
         return False
 
+
 def get_php_ext_path():
-   extension_dir = Popen("php-config | grep extension-dir",
-                         shell=True, stdout=PIPE, stderr=PIPE).communicate()[0]
-   if extension_dir:
-      lbr = extension_dir.find("[")
-      rbr = extension_dir.find("]")
-      if 0 < lbr < rbr:
-         return extension_dir[lbr+1:rbr]
+    extension_dir = Popen(
+        "php-config | grep extension-dir", shell=True, stdout=PIPE, stderr=PIPE).communicate()[0]
+    if extension_dir:
+        lbr = extension_dir.find("[")
+        rbr = extension_dir.find("]")
+        if 0 < lbr < rbr:
+            return extension_dir[lbr + 1:rbr]
+
 
 def sigalrm_handler(sig, frame):
-   raise OSError, "Alarm"
+    raise OSError("Alarm")
 
 
 class PhpMultiliner:
@@ -212,9 +218,9 @@ class PhpMultiliner:
         l = "".join(ls)
         if l:
             if l.find("unexpected $end") != -1:
-                return (self.incomplete, "")
-            return (self.syntax_error, l)
-        return (self.complete, "")
+                return self.incomplete, ""
+            return self.syntax_error, l
+        return self.complete, ""
 
     def input_line(self, line):
         if self.partial:
@@ -222,14 +228,14 @@ class PhpMultiliner:
         self.partial += line
         partial_mod = do_sugar(self.partial)
         if not partial_mod:
-            return (self.complete, "")
+            return self.complete, ""
 
         (syntax_info, _) = self.check_syntax(partial_mod)
         if syntax_info == self.complete:
             # Multiline inputs are encoded to one line.
             partial_mod = line_encode(partial_mod)
             self.clear()
-            return (syntax_info, partial_mod)
+            return syntax_info, partial_mod
 
         # We need to pull off the syntactic sugar ; to see if the line failed
         # the syntax check because of syntax_error, or because of incomplete.
@@ -237,6 +243,7 @@ class PhpMultiliner:
 
     def clear(self):
         self.partial = ""
+
 
 class ProblemStartingPhp(Exception):
     def __init__(self,
@@ -249,26 +256,27 @@ class ProblemStartingPhp(Exception):
         self.stdout_lines = stdout_lines
         self.stderr_lines = stderr_lines
 
+
 class PhpshConfig:
     def __init__(self):
         self.config = ConfigParser.RawConfigParser({
             "UndefinedFunctionCheck": "yes",
-            "Xdebug"          : None,
-            "DebugClient"     : "emacs",
-            "ClientTimeout"   : 60,
-            "ClientHost"      : "localhost",
-            "ClientPort"      : None,
-            "ProxyPort"       : None,
-            "Help"            : "no",
-            "LogDBGp"         : "no",
-            "ForegroundColor" : "black",
-            "BackgroundColor" : "white",
-            "InactiveColor"   : "grey75",
+            "Xdebug": None,
+            "DebugClient": "emacs",
+            "ClientTimeout": 60,
+            "ClientHost": "localhost",
+            "ClientPort": None,
+            "ProxyPort": None,
+            "Help": "no",
+            "LogDBGp": "no",
+            "ForegroundColor": "black",
+            "BackgroundColor": "white",
+            "InactiveColor": "grey75",
             "InactiveMinimize": "yes",
-            "FontFamily"      : None,
-            "FontSize"        : None,
+            "FontFamily": None,
+            "FontSize": None,
             "XdebugClientPath": "debugclient",
-            "X11"             : "yes"})
+            "X11": "yes"})
         self.config.add_section("General")
         self.config.add_section("Debugging")
         self.config.add_section("Emacs")
@@ -289,6 +297,7 @@ class PhpshConfig:
         else:
             return None
 
+
 def until_paren_close_balanced(s):
     lparens = 1
     for i in range(len(s)):
@@ -300,38 +309,41 @@ def until_paren_close_balanced(s):
             return s[:i]
     return s
 
+
 class LoadCtags(Thread):
     def __init__(self, phpsh_state):
         Thread.__init__(self)
         self.phpsh_state = phpsh_state
         self.phpsh_state.function_signatures = {}
+
     def run(self):
         try:
-           tags_file_path = None
-           try:
-              tags_file_path = ctags.find_tags_file()
-           except ctags.CantFindTagsFile, e:
-              return
+            tags_file_path = None
+            try:
+                tags_file_path = ctags.find_tags_file()
+            except ctags.CantFindTagsFile, e:
+                return
 
-           print self.phpsh_state.clr_cmd + \
-               "Loading ctags (in background)" + \
-               self.phpsh_state.clr_default
-           self.phpsh_state.ctags = ctags.Ctags(tags_file_path)
-           try:
-              self.phpsh_state.function_signatures = \
-                  ctags.CtagsFunctionSignatures().function_signatures
-           except Exception, e:
-              print self.phpsh_state.clr_err + \
-                  "Problem loading function signatures" + \
-                  self.phpsh_state.clr_default
+            print self.phpsh_state.clr_cmd + \
+                "Loading ctags (in background)" + \
+                self.phpsh_state.clr_default
+            self.phpsh_state.ctags = ctags.Ctags(tags_file_path)
+            try:
+                self.phpsh_state.function_signatures = \
+                    ctags.CtagsFunctionSignatures().function_signatures
+            except Exception, e:
+                print self.phpsh_state.clr_err + \
+                    "Problem loading function signatures" + \
+                    self.phpsh_state.clr_default
         except Exception, e:
-           if tags_file_path:
-              path = tags_file_path
-           else:
-              path = ""
-           print self.phpsh_state.clr_err + \
-               "Problem loading ctags %(path)s\n(%(e)s)\n" % locals() + \
-               self.phpsh_state.clr_default
+            if tags_file_path:
+                path = tags_file_path
+            else:
+                path = ""
+            print self.phpsh_state.clr_err + \
+                "Problem loading ctags %(path)s\n(%(e)s)\n" % locals() + \
+                self.phpsh_state.clr_default
+
 
 class PhpshState:
     """This doesn't perfectly encapsulate state (e.g. the readline module has
@@ -350,23 +362,23 @@ class PhpshState:
     debug_command = "x "
 
     def __init__(self, cmd_incs, do_color, do_echo, codebase_mode,
-            do_autocomplete, do_ctags, interactive, with_xdebug, verbose):
+                 do_autocomplete, do_ctags, interactive, with_xdebug, verbose):
         """start phpsh.php and do other preparations (colors, ctags)
         """
 
         self.phpsh_root = os.path.dirname(os.path.realpath(__file__))
 
         self.do_echo = do_echo
-        self.p_dbgp = None; # debugging proxy
-        self.dbgp_port = 9000; # default port on which dbgp proxy listens
+        self.p_dbgp = None  # debugging proxy
+        self.dbgp_port = 9000  # default port on which dbgp proxy listens
         self.temp_file_name = tempfile.mkstemp()[1]
-        self.output_tempfile = None # tempfile to buffer php output
-        self.with_xdebug = with_xdebug;
+        self.output_tempfile = None  # tempfile to buffer php output
+        self.with_xdebug = with_xdebug
         self.verbose = verbose
-        self.xdebug_path = None # path to xdebug.so read from config file
-        self.xdebug_disabled_reason = None # why debugging was disabled
-        self.to_dbgp = None   # fds of pipe endpoints for writing commands
-        self.from_dbgp = None # to dbgp proxy and reading replies
+        self.xdebug_path = None  # path to xdebug.so read from config file
+        self.xdebug_disabled_reason = None  # why debugging was disabled
+        self.to_dbgp = None  # fds of pipe endpoints for writing commands
+        self.from_dbgp = None  # to dbgp proxy and reading replies
 
         # so many colors, so much awesome
         if not do_color:
@@ -384,17 +396,15 @@ class PhpshState:
 
         self.config = PhpshConfig()
         try:
-           self.config.read()
+            self.config.read()
         except Exception, msg:
-           self.print_error("Failed to load config file, using default "\
-                            "settings: " + str(msg))
+            self.print_error("Failed to load config file, using default settings: " + str(msg))
         if self.with_xdebug:
             xdebug = self.config.get_option("Debugging", "Xdebug")
             if xdebug and xdebug != "yes":
                 if xdebug == "no":
                     self.with_xdebug = False
-                    self.xdebug_disabled_reason = \
-                        "Xdebug is set to 'no' in config file"
+                    self.xdebug_disabled_reason = "Xdebug is set to 'no' in config file"
                 else:
                     self.xdebug_path = xdebug
 
@@ -424,13 +434,13 @@ class PhpshState:
                             xdebug_version = self.get_xdebug_version(
                                 xdebug_comm_base)
                             if xdebug_version < [2, 0, 3]:
-                                self.xdebug_disabled_reason = "\
-Xdebug version %s is too low.  xdebug-2.0.3 or above required." % \
-xdebug_version
+                                self.xdebug_disabled_reason = (
+                                    "Xdebug version %s is too low. xdebug-2.0.3 or above required."
+                                    % xdebug_version)
                                 self.with_xdebug = False
                         except Exception, msg:
-                            self.xdebug_disabled_reason = self.xdebug_path + \
-                                " is incompatible with your php build"
+                            self.xdebug_disabled_reason = (
+                                self.xdebug_path + " is incompatible with your php build")
                             self.with_xdebug = False
                     except OSError:
                         self.xdebug_disabled_reason = \
@@ -446,7 +456,7 @@ Make sure php-config is in your PATH."""
                 if self.verbose and not self.with_xdebug and \
                         self.xdebug_disabled_reason:
                     self.print_warning("PHP debugging will be disabled:\n" +
-                        self.xdebug_disabled_reason)
+                                       self.xdebug_disabled_reason)
         if self.with_xdebug:
             self.comm_base = xdebug_comm_base
             self.start_xdebug_proxy()
@@ -467,11 +477,10 @@ Make sure php-config is in your PATH."""
         # ctags integration
         self.ctags = None
         if do_ctags:
-           LoadCtags(self).start()
+            LoadCtags(self).start()
         else:
             self.function_signatures = {}
 
-        import rlcompleter
         input_rc_file = os.path.join(os.environ["HOME"], ".inputrc")
         if os.path.isfile(input_rc_file):
             readline.read_init_file(input_rc_file)
@@ -519,7 +528,7 @@ Make sure php-config is in your PATH."""
                 while self.autocomplete_identifiers[pos].startswith(text):
                     identifier = self.autocomplete_identifiers[pos]
                     self.autocomplete_cache.append(identifier)
-                    pos = pos + 1
+                    pos += 1
 
                 if self.function_signatures.has_key(text):
                     for sig in self.function_signatures[text]:
@@ -557,22 +566,21 @@ Make sure php-config is in your PATH."""
         p = Popen(comm_base + ["-r", "phpinfo();"], stdout=PIPE, stderr=PIPE)
         out, err = p.communicate()
         if p.returncode is not 0:
-            raise Exception, "Failed to load Xdebug\n" + err
+            raise Exception("Failed to load Xdebug\n" + err)
         m = re.compile(" *with Xdebug v([0-9.]+)").search(out)
         if not m:
-            raise Exception, \
-                "Could not find xdebug version number in phpinfo() output"
+            raise Exception("Could not find xdebug version number in phpinfo() output")
         try:
             return [int(s) for s in m.group(1).strip(".").split(".")]
         except ValueError:
-            raise ValueError, "invalid Xdebug version format: " + m.group(1)
+            raise ValueError("invalid Xdebug version format: " + m.group(1))
 
     def start_xdebug_proxy(self):
         try:
             to_r, to_w = os.pipe()
             from_r, from_w = os.pipe()
             dbgp_py = ["dbgp-phpsh.py",
-                str(to_r), str(to_w), str(from_r), str(from_w)]
+                       str(to_r), str(to_w), str(from_r), str(from_w)]
             self.p_dbgp = Popen(dbgp_py)
             os.close(to_r)
             os.close(from_w)
@@ -604,7 +612,7 @@ Could not obtain initialization status from xdebug proxy: %s" % msg)
         if self.verbose and not self.with_xdebug and \
                 self.xdebug_disabled_reason:
             self.print_warning("PHP debugging will be disabled:\n" +
-                self.xdebug_disabled_reason)
+                               self.xdebug_disabled_reason)
 
     def print_error(self, msg):
         print self.clr_err + msg + self.clr_default
@@ -616,8 +624,8 @@ Could not obtain initialization status from xdebug proxy: %s" % msg)
     # if debug_funcall is True, the expression is being run under
     # debugger.
     def do_expr(self, expr, debug_funcall=False):
-        defer_output = debug_funcall and (not os.getenv("DISPLAY") or \
-            self.config.get_option("Debugging", "X11") == "no")
+        defer_output = debug_funcall and (
+            not os.getenv("DISPLAY") or self.config.get_option("Debugging", "X11") == "no")
         # if we are executing a function call under debugger and debug
         # client is running in the same terminal as phpsh, do not print
         # the output we get from php in terminal until evaluation is done
@@ -652,7 +660,7 @@ Fix the problem and hit enter to reload or ctrl-C to quit.""")
                 if e.line_num:
                     print("\
 Type 'e' to open emacs or 'V' to open vim to %s: %s" %
-(e.file_name, e.line_num))
+                          (e.file_name, e.line_num))
                     print self.clr_default
 
                     response = raw_input()
@@ -691,16 +699,16 @@ Type 'e' to open emacs or 'V' to open vim to %s: %s" %
         env = os.environ.copy()
 
         if self.with_xdebug:
-           env["XDEBUG_CONFIG"] = \
-               "remote_port=%(port)s remote_enable=1" % {"port": self.dbgp_port}
+            env["XDEBUG_CONFIG"] = \
+                "remote_port=%(port)s remote_enable=1" % {"port": self.dbgp_port}
 
         self.p = Popen(cmd, env=env, stdin=PIPE, stdout=PIPE, stderr=PIPE,
                        preexec_fn=os.setsid)
 
         if self.with_xdebug:
             # disable remote debugging for other instances of php started by
-            # this script, such as the multiline syntax verifyer
-            os.putenv("XDEBUG_CONFIG", "remote_enable=0");
+            # this script, such as the multiline syntax verifier
+            os.putenv("XDEBUG_CONFIG", "remote_enable=0")
 
         p_line = self.p.stdout.readline().rstrip()
 
@@ -710,7 +718,6 @@ Type 'e' to open emacs or 'V' to open vim to %s: %s" %
 
             parse_error_re = re.compile(
                 "PHP Parse error: .* in (.*) on line ([0-9]*)")
-            m = None
             for line in reversed(err_lines):
                 m = parse_error_re.match(line)
                 if m:
@@ -721,7 +728,7 @@ Type 'e' to open emacs or 'V' to open vim to %s: %s" %
                                              stderr_lines=err_lines)
 
             raise ProblemStartingPhp(stdout_lines=out_lines,
-                                    stderr_lines=err_lines)
+                                     stderr_lines=err_lines)
 
         while True:
             p_line = self.p.stdout.readline().rstrip()
@@ -742,7 +749,7 @@ Type 'e' to open emacs or 'V' to open vim to %s: %s" %
             else:
                 out = sys.stdout
                 err = sys.stderr
-            # wait for signal that php command is done
+                # wait for signal that php command is done
             # keep checking for death
             out_buff = ["", ""]
             buffer_size = 4096
@@ -769,7 +776,7 @@ Type 'e' to open emacs or 'V' to open vim to %s: %s" %
                     if debug:
                         print "start loop"
                     s = select.select([self.p.stdout, self.p.stderr], [], [],
-                        comm_poll_timeout)
+                                      comm_poll_timeout)
                     if s == ([], [], []):
                         if debug:
                             print "empty"
@@ -798,12 +805,12 @@ Type 'e' to open emacs or 'V' to open vim to %s: %s" %
                                     err.write(l)
                             out_buff[out_buff_i] = \
                                 out_buff[out_buff_i][last_nl_pos + 1:]
-                # at this point either:
+                    # at this point either:
                 #  the php instance died
                 #  select timed out
                 l = self.comm_file.readline()
                 if l.startswith("child"):
-                    ret_code = self.p.poll()
+                    self.p.poll()
                     os.kill(self.p.pid, signal.SIGHUP)
                     self.p.pid = int(l.split()[1])
                 elif l.startswith("ready"):
@@ -822,8 +829,8 @@ Type 'e' to open emacs or 'V' to open vim to %s: %s" %
         except KeyboardInterrupt:
             self.show_incs("Interrupt! ")
             if defer_output and self.output_tempfile.tell() > 0:
-               self.output_tempfile.seek(0, os.SEEK_SET)
-               for line in self.output_tempfile: print line
+                self.output_tempfile.seek(0, os.SEEK_SET)
+                for line in self.output_tempfile: print line
             self.php_restart()
 
     def show_incs(self, pre_str="", restart=True, start=False):
@@ -883,11 +890,11 @@ Type 'e' to open emacs or 'V' to open vim to %s: %s" %
                 print repr(tags)
                 for t in tags:
                     try:
-                        file = self.ctags.tags_root + os.path.sep + t["file"]
+                        file_ = self.ctags.tags_root + os.path.sep + t["file"]
                         doc = ""
                         append = False
                         line_num = 0
-                        for line in open(file):
+                        for line in open(file_):
                             line_num += 1
                             if not append:
                                 if line.find("/*") != -1:
@@ -896,7 +903,7 @@ Type 'e' to open emacs or 'V' to open vim to %s: %s" %
                             if append:
                                 if line.find(t["context"]) != -1:
                                     print ("%s, lines %d-%d:" %
-                                        (file, doc_start_line, line_num))
+                                           (file_, doc_start_line, line_num))
                                     print doc
                                     break
                                 if line.find("*") == -1:
@@ -907,8 +914,9 @@ Type 'e' to open emacs or 'V' to open vim to %s: %s" %
                     except:
                         pass
             import manual
+
             manual_ret = manual.get_documentation_for_identifier(identifier,
-                short=line.startswith("d "))
+                                                                 short=line.startswith("d "))
             if manual_ret:
                 print manual_ret
             if not manual_ret and ctags_error:
@@ -939,7 +947,6 @@ Type 'e' to open emacs or 'V' to open vim to %s: %s" %
             return self.no_command
         return self.yes_command
 
-
     # check if line is of the form "=?<function-name>(<args>?)"
     # if it is, send it to the DBGp proxy and if the proxy reports
     # that it is ready to start debugging, return True. Otherwise
@@ -961,16 +968,15 @@ Type 'e' to open emacs or 'V' to open vim to %s: %s" %
                 self.print_error("xdebug proxy error: " + dbgp_reply)
                 return False
         except Exception, msg:
-            self.print_error("Failed to communicate with xdebug proxy, "\
-                "disabling PHP debugging: " + str(msg))
+            self.print_error("Failed to communicate with xdebug proxy, "
+                             "disabling PHP debugging: " + str(msg))
             self.to_dbgp.close()
             self.from_dbgp.close()
             self.p_dbgp = None
             self.with_xdebug = False
             return False
-        # return PHP code to pass to PHP for eval
+            # return PHP code to pass to PHP for eval
         return True
-
 
     def editor_tag(self, tag, editor, read_only=False):
         if tag.startswith("$"):
@@ -988,13 +994,11 @@ Type 'e' to open emacs or 'V' to open vim to %s: %s" %
             t = self.ctags.py_tags[tag][0]
             # get line number (or is there a way to start emacs at a
             # particular tag location?)
+            found_tag = False
             try:
-                file = self.ctags.tags_root + os.path.sep + t["file"]
-                doc = ""
-                append = False
+                file_ = self.ctags.tags_root + os.path.sep + t["file"]
                 line_num = 1
-                found_tag = False
-                for line in open(file):
+                for line in open(file_):
                     line_num += 1
                     if line.find(t["context"]) != -1:
                         emacs_line = line_num
@@ -1004,7 +1008,7 @@ Type 'e' to open emacs or 'V' to open vim to %s: %s" %
                 pass
             if found_tag:
                 # -nw opens it in the terminal instead of using X
-                cmd = "emacs -nw +%d %s" % (emacs_line, file)
+                cmd = "emacs -nw +%d %s" % (emacs_line, file_)
                 p_emacs = Popen(cmd, shell=True)
                 p_emacs.wait()
                 self.p.stdin.write("\n")
@@ -1042,21 +1046,21 @@ Type 'e' to open emacs or 'V' to open vim to %s: %s" %
         # shutdown php, if it doesn't exit in 5s, kill -9
         if alarm:
             signal.signal(signal.SIGALRM, sigalrm_handler)
-        # if we have fatal-restart prevention, the child proess can't be waited
+            # if we have fatal-restart prevention, the child process can't be waited
         #  on since it's no longer a child of this process
         try:
             self.p.stdout.close()
             self.p.stderr.close()
             self.p.stdin.close()
             if alarm:
-               signal.alarm(5)
+                signal.alarm(5)
             os.waitpid(self.p.pid, 0)
         except (IOError, OSError, KeyboardInterrupt):
             os.kill(self.p.pid, signal.SIGKILL)
             # collect the zombie
             try:
-              os.waitpid(self.p.pid, 0)
-            except (OSError):
-              pass
+                os.waitpid(self.p.pid, 0)
+            except OSError:
+                pass
         self.p = None
 

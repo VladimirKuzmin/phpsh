@@ -8,14 +8,13 @@ import os
 usage = """~/www> phpsh [options] [extra-includes]
 phpsh is an interactive shell into a php codebase."""
 p = OptionParser(usage=usage, version="%prog " + __version__)
-p.add_option("-c", "--codebase-mode",
-    help="""Use "-c none" to load no codebase.
+p.add_option("-c", "--codebase-mode", help="""Use "-c none" to load no codebase.
 See /etc/phpsh/rc.php for other codebase modes.""")
-p.add_option("-t", "--test-file",
-    help="""Run a saved-phpsh-session unit test file.
+p.add_option("-t", "--test-file", help="""Run a saved-phpsh-session unit test file.
 See test/ in the phpsh distribution for examples.""")
-p.add_option("-v", "--verbose", action="store_true", help=
-    """Be more verbose, do not defer warnings about missing extensions.""")
+p.add_option(
+    "-v", "--verbose", action="store_true",
+    help="Be more verbose, do not defer warnings about missing extensions.")
 
 # are we cool with these negated opts?
 # at least they indicate the defaults..
@@ -39,7 +38,8 @@ if not opts.no_nice:
 
 do_multiline = not opts.no_multiline
 
-s = PhpshState(cmd_incs=set(cmd_incs),
+s = PhpshState(
+    cmd_incs=set(cmd_incs),
     do_color=not opts.no_color and not opts.test_file,
     do_echo=not opts.test_file, codebase_mode=opts.codebase_mode,
     do_autocomplete=not opts.no_autocomplete, do_ctags=not opts.no_ctags,
@@ -145,7 +145,7 @@ while True:
             line_ready = ""
     else:
         line_ready = line_encode(do_sugar(line))
-    if line_ready != None:
+    if not line_ready is None:
         if line_ready:
             s.write()
             if debug_funcall:

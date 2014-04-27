@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+"""This is a DBGp xdebug protocol proxy started by phpsh. It accepts a
+connection from xdebug, connects to an IDE debug client and
+communicates with its parent phpsh over a pair of pipes."""
+
 from select import poll, POLLIN, POLLHUP
 from subprocess import Popen, PIPE
 from phpsh import PhpshConfig
@@ -12,10 +16,6 @@ import sys
 import re
 import os
 
-"""This is a DBGp xdebug protocol proxy started by phpsh. It accepts a
-connection from xdebug, connects to an IDE debug client and
-communicates with its parent phpsh over a pair of pipes."""
-
 __version__ = "1.0"
 __author__ = "march@facebook.com"
 __date__ = "Nov 05, 2008"
@@ -27,8 +27,9 @@ Timed out while waiting for debug client for %ds. Make sure the client is
 configured for PHP debugging and expects xdebug connections on port
 %d. Client command was: %s"""
 
-
 logfile = None
+
+
 def debug_log(s):
     global tracing_enabled
     global logfile
@@ -37,7 +38,7 @@ def debug_log(s):
     if not logfile:
         logfile = open("dbgp.log", "a", 1)
         logfile.write('\n>>>>>>>>>>>>>>>>>>>>>>>\n\n')
-    logfile.write(s+'\n\n')
+    logfile.write(s + '\n\n')
     logfile.flush()
 
 
@@ -67,7 +68,7 @@ def dbgp_get_bpid(dbgp_response):
     doc = xml.dom.minidom.parseString(dbgp_response)
     res = doc.getElementsByTagName("response")
     if res and res[0].getAttribute('command') == 'breakpoint_set':
-      return res[0].getAttribute('id')
+        return res[0].getAttribute('id')
 
 
 def xdebug_is_stopping(dbgp_response):
@@ -109,7 +110,7 @@ def get_emacs_version():
         raise OSError, "emacs not found. Make sure it's in your PATH."
     m = re.compile("GNU Emacs ([0-9.]+)").match(vline)
     if not m:
-        raise ValueError, "could not parse emacs version: " + vline +\
+        raise ValueError, "could not parse emacs version: " + vline + \
                           "\nexpected GNU Emacs [0-9.]+"
     try:
         return [int(s) for s in m.group(1).strip('.').split('.')]
@@ -121,13 +122,13 @@ def get_debugclient_version(debugclient_path):
     vline = Popen(debugclient_path + " -v | head -n 1", shell=True,
                   stdout=PIPE, stderr=PIPE).communicate()[0]
     if not vline:
-        raise OSError, "debugclient not found\nThis is a simple xdebug "\
-              "protocol client distributed with xdebug\n"\
-              "Make sure it's in your PATH."
+        raise OSError, "debugclient not found\nThis is a simple xdebug " \
+                       "protocol client distributed with xdebug\n" \
+                       "Make sure it's in your PATH."
     m = re.compile("Xdebug Simple DBGp client \(([0-9.]+)\)").match(vline)
     if not m:
-        raise ValueError, "could not parse debugclient version: " + vline +\
-              "\nexpected Xdebug Simple DBGp client ([0-9.]+)"
+        raise ValueError, "could not parse debugclient version: " + vline + \
+                          "\nexpected Xdebug Simple DBGp client ([0-9.]+)"
     try:
         return [int(s) for s in m.group(1).strip('.').split('.')]
     except ValueError:
@@ -135,46 +136,47 @@ def get_debugclient_version(debugclient_path):
 
 
 class DebugClient:
-    """Objects of this class are interfaces to debug IDE clients. A DebugClient object may exist even if the underlying IDE process is no longer running."""
+    """Objects of this class are interfaces to debug IDE clients.
 
-    def __init__(self, config, port):
-        self.p_client = None # Popen to client
-        self.conn = None     # DBGpConn to client
-        self.lasttxid = None # last txid seen from this client
+     A DebugClient object may exist even if the underlying IDE process is no longer running.
+     """
+
+    def __init__(self, config_, port):
+        self.p_client = None  # Popen to client
+        self.conn = None  # DBGpConn to client
+        self.lasttxid = None  # last txid seen from this client
         self.lastdbgpcmd = None  # name of last command read from client
         self.stopped = True  # never sent anything to this client, or
-                             # last message was "stopped"
-        self.config = config # RawConfigParser
+        # last message was "stopped"
+        self.config = config_  # RawConfigParser
         self.port = port
-        self.host = config.get_option("Debugging", "ClientHost")
-        self.timeout = parse_timeout(config.get_option("Debugging",
-                                                       "ClientTimeout"))
-        self.auto_close = False # client exits after each debugging session
-                                # self.emacs_command() may set this to True
+        self.host = config_.get_option("Debugging", "ClientHost")
+        self.timeout = parse_timeout(config_.get_option("Debugging", "ClientTimeout"))
+        self.auto_close = False  # client exits after each debugging session
+        # self.emacs_command() may set this to True
 
         debug_log("creating DebugClient object")
 
-        if config.get_option("Debugging", "X11").startswith("require") \
-               and not os.getenv('DISPLAY'):
+        if config_.get_option("Debugging", "X11").startswith("require") \
+            and not os.getenv('DISPLAY'):
             debug_log("X11 is required and DISPLAY is not set")
             raise Exception, "X11 is required and DISPLAY is not set"
 
-        cmd = config.get_option("Debugging", "DebugClient")
+        cmd = config_.get_option("Debugging", "DebugClient")
         if cmd.startswith("emacs"):
             emacs_version = get_emacs_version()
             if emacs_version < [22, 1]:
-                raise Exception, "emacs version " + str(emacs_version) +\
+                raise Exception, "emacs version " + str(emacs_version) + \
                                  " is too low, 22.1 or above required"
-            debugclient_path = config.get_option("Emacs", "XdebugClientPath")
+            debugclient_path = config_.get_option("Emacs", "XdebugClientPath")
             debugclient_version = get_debugclient_version(debugclient_path)
             if debugclient_version < [0, 10, 0]:
-                raise Exception, "debugclient (xdebug client) version " +\
-                      str(debugclient_version) + " is too low. 0.10.0 or "\
-                      "above required"
-            self.cmd = self.emacs_command(config)
+                raise Exception, "debugclient (xdebug client) version " + \
+                                 str(debugclient_version) + " is too low. 0.10.0 or " \
+                                                            "above required"
+            self.cmd = self.emacs_command(config_)
         else:
             self.cmd = shlex.split(cmd)
-
 
     def connect(self):
         """Try to connect to self.host:self.port (if host is an empty string,
@@ -194,7 +196,7 @@ class DebugClient:
                 try:
                     while events:
                         fd, e = events[0]
-                        if e&POLLHUP:
+                        if e & POLLHUP:
                             self.conn.close()
                             self.conn = None
                             raise EOFError
@@ -208,17 +210,17 @@ class DebugClient:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             sock.connect((self.host, self.port))
-        except socket.error, msg:
+        except socket.error, msg_:
             if self.host != '' and self.host != 'localhost' \
-                   and self.host != '127.0.0.1' or not self.cmd:
+                and self.host != '127.0.0.1' or not self.cmd:
                 # could not connect and client is not local or no command
                 # to start a client. Propagate exception.
-                raise socket.error, msg
-            # client is local, X display is set, try to start it
+                raise socket.error, msg_
+                # client is local, X display is set, try to start it
             debug_log("Starting client: " + " ".join(self.cmd))
             self.p_client = Popen(self.cmd, close_fds=True)
             sock.settimeout(self.timeout)
-            tstart = time.time()
+            t_start = time.time()
             while True:
                 try:
                     debug_log("Connecting to client")
@@ -229,17 +231,17 @@ class DebugClient:
                 except socket.error:
                     # failed to connect, likely client is not up yet
                     # keep trying
-                    if self.timeout and time.time() - tstart > self.timeout:
-                        debug_log("Timed out while waiting "\
+                    if self.timeout and time.time() - t_start > self.timeout:
+                        debug_log("Timed out while waiting "
                                   "for debug client to come up")
                         self.close()
-                        raise socket.timeout, "Timed out while waiting "\
-                              "for debug client to come up"
+                        raise socket.timeout, "Timed out while waiting " \
+                                              "for debug client to come up"
                     time.sleep(1)
         self.conn = DBGpConn(sock)
 
-    def send_msg(self, msg):
-        self.conn.send_msg(msg)
+    def send_msg(self, msg_):
+        self.conn.send_msg(msg_)
         self.stopped = False
 
     def recv_cmd(self):
@@ -247,10 +249,10 @@ class DebugClient:
         try:
             lcmd = cmd.split()
             i = lcmd.index("-i")
-            self.lasttxid = lcmd[i+1]
+            self.lasttxid = lcmd[i + 1]
             self.lastdbgpcmd = lcmd[0]
-        except Exception, msg:
-            debug_log("ERROR: did not find txid in command read from client: "\
+        except Exception:
+            debug_log("ERROR: did not find txid in command read from client: "
                       + cmd)
         return cmd
 
@@ -259,14 +261,14 @@ class DebugClient:
 
     def stop(self):
         if self.stopped or not self.lasttxid or not self.lastdbgpcmd or \
-           not self.conn.isconnected():
+                not self.conn.isconnected():
             # client is already stopped or hasn't run a debug session
             return False
-        stopped = '<?xml version="1.0" encoding="iso-8859-1"?>\n'\
-                   '<response xmlns="urn:debugger_protocol_v1" '\
-                   'xmlns:xdebug="http://xdebug.org/dbgp/xdebug" '\
-                   'command="'+self.lastdbgpcmd+'" transaction_id="'\
-                   +self.lasttxid+'" status="stopped" reason="ok"></response>'
+        stopped = (
+            '<?xml version="1.0" encoding="iso-8859-1"?>\n<response '
+            'xmlns="urn:debugger_protocol_v1" xmlns:xdebug="http://xdebug.org/dbgp/xdebug" '
+            'command="{cmd}" transaction_id="{id}" status="stopped" reason="ok"></response>'
+        ).format(cmd=self.lastdbgpcmd, id=self.lasttxid)
         self.send_msg(stopped)
         self.stopped = True
         # If our client is emacs that we started and it is
@@ -301,7 +303,7 @@ class DebugClient:
                 pass
             self.p_client = None
 
-    def emacs_command(self, config):
+    def emacs_command(self, config_):
         """Returns a list containing a shell command to start and
         configure emacs according to the settings in phpsh config file"""
         phpsh_root = os.path.dirname(os.path.realpath(__file__))
@@ -309,41 +311,39 @@ class DebugClient:
         geben_elc = os.path.join(elisp_root, "geben.elc")
         phpsh_el = os.path.join(phpsh_root, "phpsh.el")
         help = os.path.join(elisp_root, "help")
-        debugclient_path = config.get_option("Emacs", "XdebugClientPath")
+        debugclient_path = config_.get_option("Emacs", "XdebugClientPath")
 
         use_x = os.getenv('DISPLAY') and \
-                     config.get_option("Debugging", "X11") != "no"
+                config_.get_option("Debugging", "X11") != "no"
         if use_x:
-            fg = config.get_option("Emacs", "ForegroundColor")
-            bg = config.get_option("Emacs", "BackgroundColor")
-            ina = config.get_option("Emacs", "InactiveColor")
-            family = config.get_option("Emacs", "FontFamily")
-            size = config.get_option("Emacs", "FontSize")
+            fg = config_.get_option("Emacs", "ForegroundColor")
+            bg = config_.get_option("Emacs", "BackgroundColor")
+            ina = config_.get_option("Emacs", "InactiveColor")
+            family = config_.get_option("Emacs", "FontFamily")
+            size = config_.get_option("Emacs", "FontSize")
 
-            elisp = "(progn (set-face-foreground 'default \""+fg+"\") "+\
-                    "(setq active-bg \""+bg+"\") "+\
-                    "(setq inactive-bg \""+ina+"\") "\
-                    "(setq geben-dbgp-command-line \""+debugclient_path+\
-                    " -p "+str(self.port)+"\") "
+            elisp = (
+                "(progn (set-face-foreground 'default \"{fg}\") (setq active-bg \"{bg}\") "
+                "(setq inactive-bg \"{ina}\") (setq geben-dbgp-command-line \"{path} -p {port}\") "
+            ).format(fg=fg, bg=bg, ina=ina, path=debugclient_path, port=self.port)
             if family or size:
                 elisp += "(set-face-attribute 'default nil"
                 if family:
-                    elisp += " :family \""+family+"\""
+                    elisp += " :family \"" + family + "\""
                 if size:
-                    elisp += " :height "+size
+                    elisp += " :height " + size
                 elisp += ") "
-            if config.get_option("Emacs", "InactiveMinimize") == "yes":
-                elisp +="(add-hook 'geben-session-finished-hook "\
-                         "'iconify-frame) "\
-                         "(add-hook 'geben-session-starting-hook "\
-                         "'make-all-frames-visible) "
+            if config_.get_option("Emacs", "InactiveMinimize") == "yes":
+                elisp += (
+                    "(add-hook 'geben-session-finished-hook 'iconify-frame) "
+                    "(add-hook 'geben-session-starting-hook 'make-all-frames-visible) ")
         else:
             # no X
             self.auto_close = True
-            elisp = "(progn (setq geben-dbgp-command-line \""+debugclient_path+\
-                    " -p "+str(self.port)+"\") "\
-                    "(setq geben-dbgp-redirect-stdout-current :intercept) "\
-                    "(setq geben-dbgp-redirect-stderr-current :intercept) "
+            elisp = "(progn (setq geben-dbgp-command-line \"" + debugclient_path + \
+                    " -p " + str(self.port) + "\") " \
+                                              "(setq geben-dbgp-redirect-stdout-current :intercept) " \
+                                              "(setq geben-dbgp-redirect-stderr-current :intercept) "
             # in terminal mode we set php stdout/err redirection mode
             # to "intercept" in geben.  this will make xdebug forward
             # php stdout/err to geben over the TCP connection instead
@@ -351,13 +351,13 @@ class DebugClient:
             # printing the output to terminal while emacs is running,
             # which could mess up display and generate a SIGTTOU.
 
-        if config.get_option("Debugging", "Help") == "yes":
-            elisp += "(split-window) "\
-                     "(find-file-read-only \""+help+"\") "\
-                     "(other-window 1) "
+        if config_.get_option("Debugging", "Help") == "yes":
+            elisp += "(split-window) " \
+                     "(find-file-read-only \"" + help + "\") " \
+                                                        "(other-window 1) "
         else:
-            elisp += "(find-file-read-only \""+help+"\") "\
-                     "(switch-to-buffer \"*scratch*\") "
+            elisp += "(find-file-read-only \"" + help + "\") " \
+                                                        "(switch-to-buffer \"*scratch*\") "
         elisp += ")"
 
         if use_x:
@@ -375,7 +375,7 @@ class XDebug:
         sock, addr = s_accept.accept()
         self.conn = DBGpConn(sock) # xdebug DBGp connection
         self.dbgp_init = self.conn.recv_msg()
-        self.txid = 1000000 # use high txids to avoid clashes with clients
+        self.txid = 1000000  # use high txids to avoid clashes with clients
         self.run()
 
     def isconnected(self):
@@ -387,7 +387,7 @@ class XDebug:
     def set_breakpoint(self, function):
         """Attempt to set a breakpoint at the beginning of _function_.
         Return breakpoint id on success, None if breakpoint could not be set"""
-        self.txid+=1
+        self.txid += 1
         cmd = "breakpoint_set -i " + str(self.txid) + " -t call -m " + function
         self.send_cmd(cmd)
         reply = self.recv_reply()
@@ -395,13 +395,13 @@ class XDebug:
         return bpid
 
     def remove_breakpoint(self, bpid):
-        self.txid+=1
+        self.txid += 1
         cmd = "breakpoint_remove -i " + str(self.txid) + " -d " + bpid
         self.send_cmd(cmd)
-        self.recv_reply() # discard reply
+        self.recv_reply()  # discard reply
 
     def remove_all_breakpoints(self):
-        self.txid+=1
+        self.txid += 1
         cmd = "breakpoint_list -i " + str(self.txid)
         self.send_cmd(cmd)
         response = self.recv_reply()
@@ -412,12 +412,12 @@ class XDebug:
                 self.remove_breakpoint(bp.getAttribute("id"))
 
     def run(self):
-        self.txid+=1
+        self.txid += 1
         cmd = "run -i " + str(self.txid)
         self.send_cmd(cmd)
 
     def stop(self):
-        self.txid+=1
+        self.txid += 1
         cmd = "stop -i " + str(self.txid)
         self.send_cmd(cmd)
 
@@ -426,7 +426,7 @@ class XDebug:
         if xdebug_is_stopping(msg):
             self.stop()
             self.disconnect()
-            raise EOFError, "xdebug is stopping"
+            raise EOFError("xdebug is stopping")
         else:
             return msg
 
@@ -459,9 +459,13 @@ class DebugSession:
         self.function = function
         self.p_in = p_in  # file encapsulating "from parent" pipe end
 
-
     def setup(self):
-        """This function must be called when php just executed the initial xdebug_break() call that starts a new debugging session and the initial <break> message has been received from xdebug. setup() verifies that the function call being debugged is valid. If it is, a debug client is started and its view is set to display the first line of function. If the function call is invalid, for example, the function name cannot be found, setup() throws an Exception"""
+        """This function must be called when php just executed the initial xdebug_break()
+        call that starts a new debugging session and the initial <break> message has been received
+        from xdebug. setup() verifies that the function call being debugged is valid. If it is, a
+        debug client is started and its view is set to display the first line of function.
+        If the function call is invalid, for example, the function name cannot be found, setup()
+        throws an Exception."""
 
         # set a breakpoint on the function being debugged and on
         # ___phpsh___eval_completed(), which phpsh.php will execute
@@ -479,7 +483,7 @@ class DebugSession:
             filename = dbgp_get_filename(reply)
 
         if not filename.startswith("file://") or \
-           filename.endswith("/phpsh.php"):
+                filename.endswith("/phpsh.php"):
             # Execution stopped at ___phpsh___eval_completed() or in the
             # eval(). Abort the session.
             self.client = None
@@ -499,7 +503,6 @@ class DebugSession:
         #self.client.send_msg(reply) --this breaks geben, so disabling for now
         # but vim seems to need id
 
-
     def run(self):
         """forward messages between client and xdebug until xdebug stops in
         phpsh.php, client closes connection or parent closes stdin"""
@@ -509,7 +512,7 @@ class DebugSession:
         session_set = poll()
         session_set.register(self.client.get_sockfd(), POLLIN)
         session_set.register(self.xdebug.get_sockfd(), POLLIN)
-        session_set.register(self.p_in.fileno(), POLLIN|POLLHUP)
+        session_set.register(self.p_in.fileno(), POLLIN | POLLHUP)
 
         while True:
             events = session_set.poll()
@@ -562,40 +565,40 @@ class PhpshDebugProxy:
     commands that the proxy reads from g_in"""
 
     # if doing dynamic port assignment, pick ports from this range:
-    minport = 9002
-    maxport = 9998
+    min_port = 9002
+    max_port = 9998
 
     def __init__(self, config, p_in, p_out):
-        self.config = config # RawConfigParser
-        self.cmd = None      # Popen command list to start client if local
-        self.client = None   # DebugClient
-        self.xdebug = None   # XDebug
+        self.config = config  # RawConfigParser
+        self.cmd = None  # Popen command list to start client if local
+        self.client = None  # DebugClient
+        self.xdebug = None  # XDebug
         self.session = None  # DebugSession
         self.s_accept = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.p_in = p_in   # file encapsulating a pipe from parent
-        self.p_out = p_out # file encapsulating a pipe to parent
+        self.p_in = p_in  # file encapsulating a pipe from parent
+        self.p_out = p_out  # file encapsulating a pipe to parent
 
         # host on which client runs:
-        clienthost = config.get_option("Debugging", "ClientHost")
+        client_host = config.get_option("Debugging", "ClientHost")
         # client listens on this port
-        clientport = parse_port(config.get_option("Debugging", "ClientPort"))
+        client_port = parse_port(config.get_option("Debugging", "ClientPort"))
 
-        if not clientport and clienthost and clienthost != "localhost" and \
-           not clienthost.startswith("127.0.0."):
-            raise Exception, "configuration error: remote ClientHost with "\
-                  "no ClientPort"
+        if not client_port and client_host and client_host != "localhost" and \
+                not client_host.startswith("127.0.0."):
+            raise Exception(
+                "configuration error: remote ClientHost with no ClientPort")
 
-        listenport = parse_port(config.get_option("Debugging", "ProxyPort"))
-        if listenport:
-            self.s_accept.bind(('', listenport))
+        listen_port = parse_port(config.get_option("Debugging", "ProxyPort"))
+        if listen_port:
+            self.s_accept.bind(('', listen_port))
         else:
-            listenport = self.bind_to_port()
+            listen_port = self.bind_to_port()
 
-        if not clientport:
-            clientport = listenport+1
+        if not client_port:
+            client_port = listen_port + 1
 
         try:
-            self.client = DebugClient(config, clientport)
+            self.client = DebugClient(config, client_port)
             self.s_accept.listen(1)
             self.s_accept.settimeout(1)
         except Exception:
@@ -603,14 +606,13 @@ class PhpshDebugProxy:
             raise
 
         # tell parent we have initialized
-        debug_log("initialized, bound to port " + str(listenport))
-        self.tell_parent('initialized port='+ str(listenport))
-
+        debug_log("initialized, bound to port " + str(listen_port))
+        self.tell_parent('initialized port=' + str(listen_port))
 
     def parent_closed(self):
         """Return True if 'from parent' pipe has HUP condition"""
         evset = poll()
-        evset.register(self.p_in.fileno(), POLLIN|POLLHUP)
+        evset.register(self.p_in.fileno(), POLLIN | POLLHUP)
         events = evset.poll(0)
         if events:
             fd, e = events[0]
@@ -620,25 +622,24 @@ class PhpshDebugProxy:
             return False
 
     def tell_parent(self, str):
-        self.p_out.write(str+'\n')
+        self.p_out.write(str + '\n')
         self.p_out.flush()
-
 
     def bind_to_port(self):
         """Find an unused pair of adjacent ports (n,n+1) where n is
-        between PhpshDebugProxy.minport and maxport. Bind .s_accept to
+        between PhpshDebugProxy.min_port and max_port. Bind .s_accept to
         n and return n. Throw socket.exception if suitable pair was
         available."""
 
-        for n in xrange(PhpshDebugProxy.minport, PhpshDebugProxy.maxport+2, 2):
+        for n in xrange(PhpshDebugProxy.min_port, PhpshDebugProxy.max_port + 2, 2):
             try:
                 self.s_accept.bind(('', n))
             except socket.error:
                 continue
-            # check if client port is also available
+                # check if client port is also available
             trysock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
-                trysock.bind(('', n+1))
+                trysock.bind(('', n + 1))
                 trysock.close()
                 return n
             except socket.error:
@@ -648,11 +649,10 @@ class PhpshDebugProxy:
                                               socket.SOCK_STREAM)
         raise socket.error, "No ports available"
 
-
     def run(self):
         """main loop of dbgp proxy"""
         while True:
-            if self.xdebug == None or not self.xdebug.isconnected():
+            if self.xdebug is None or not self.xdebug.isconnected():
                 # if we do not have an xdebug connection, accept one
                 # keep an eye on phpsh, exit if it closes our stdin
                 self.xdebug = None
@@ -665,14 +665,14 @@ class PhpshDebugProxy:
                             debug_log("parent closed its end of pipe")
                             return
                         time.sleep(1)
-            # at this point self.xdebug is initialized
+                # at this point self.xdebug is initialized
             # block waiting for a command from phpsh, if xdebug disconnects
             # because PHP was restarted, start over
             phpsh_cmd = None
             try:
                 cmd_pollset = poll()
-                cmd_pollset.register(self.p_in.fileno(), POLLIN|POLLHUP)
-                cmd_pollset.register(self.xdebug.get_sockfd(), POLLIN|POLLHUP)
+                cmd_pollset.register(self.p_in.fileno(), POLLIN | POLLHUP)
+                cmd_pollset.register(self.xdebug.get_sockfd(), POLLIN | POLLHUP)
                 while not phpsh_cmd:
                     # wait for a command from phpsh
                     # keep an eye on PHP, handle restarts
@@ -699,7 +699,7 @@ class PhpshDebugProxy:
                                 # happens only if we reach the function via
                                 # a "step out" command. Compensate by sending
                                 # a run command.
-                                debug_log("ERROR: xdebug stopped in phpsh.php "\
+                                debug_log("ERROR: xdebug stopped in phpsh.php "
                                           "after breakpoint was removed.")
                                 self.xdebug.run()
             except (socket.error, EOFError), msg:
@@ -714,7 +714,6 @@ class PhpshDebugProxy:
             # at this point phpsh_cmd has a new command from phpsh
             if phpsh_cmd.startswith("x "):
                 function = phpsh_cmd[2:].strip()
-                session = None
                 # in the future we will be checking here if debugging
                 # can be started, for now we create a session object
                 # unconditionally and tell phpsh to go on. If later we
@@ -760,98 +759,99 @@ class PhpshDebugProxy:
 #    Seung Woo Shin <segv <at> sayclub.com>
 #    Sam Ghods <sam <at> box.net>
 class DBGpConn:
-  """ DBGp Connection class """
-  def __init__(self, sock):
-    self.sock     = sock
+    """DBGp Connection class."""
 
-  def isconnected(self):
-    return self.sock != None
+    def __init__(self, sock):
+        self.sock = sock
 
-  def close(self):
-    if self.sock != None:
-      self.sock.close()
-      self.sock = None
+    def isconnected(self):
+        return not self.sock is None
 
-  def _recv_length(self):
-    length = ''
-    while 1:
-      c = self.sock.recv(1)
-      if c == '':
-        self.close()
-        raise EOFError, 'Socket Closed'
-      if c == '\0':
-        return int(length)
-      if c.isdigit():
-        length = length + c
+    def close(self):
+        if not self.sock is None:
+            self.sock.close()
+            self.sock = None
 
-  def _recv_null(self):
-    while 1:
-      c = self.sock.recv(1)
-      if c == '':
-        self.close()
-        raise EOFError, 'Socket Closed'
-      if c == '\0':
-        return
+    def _recv_length(self):
+        length = ''
+        while 1:
+            c = self.sock.recv(1)
+            if c == '':
+                self.close()
+                raise EOFError('Socket Closed')
+            if c == '\0':
+                return int(length)
+            if c.isdigit():
+                length = length + c
 
-  def _recv_body(self, to_recv):
-    body = ''
-    while to_recv > 0:
-      buf = self.sock.recv(to_recv)
-      if buf == '':
-        self.close()
-        raise EOFError, 'Socket Closed'
-      to_recv -= len(buf)
-      body = body + buf
-    return body
+    def _recv_null(self):
+        while 1:
+            c = self.sock.recv(1)
+            if c == '':
+                self.close()
+                raise EOFError('Socket Closed')
+            if c == '\0':
+                return
 
-  def recv_msg(self):
-      try:
-          length = self._recv_length()
-          body   = self._recv_body(length)
-          self._recv_null()
-          debug_log("received from " + str(self.sock.fileno()) + ": " + body)
-          return body
-      except:
-          self.close()
-          raise
+    def _recv_body(self, to_recv):
+        body = ''
+        while to_recv > 0:
+            buf = self.sock.recv(to_recv)
+            if buf == '':
+                self.close()
+                raise EOFError('Socket Closed')
+            to_recv -= len(buf)
+            body = body + buf
+        return body
 
-  def recv_cmd(self):
-      try:
-          cmd = ''
-          while True:
-              c = self.sock.recv(1)
-              if c == '':
-                  self.close()
-                  raise EOFError, 'Socket Closed'
-              elif c == '\0':
-                  debug_log("received from " + str(self.sock.fileno()) + ": " +
-                            cmd)
-                  return cmd
-              else:
-                  cmd += c
-      except:
-          self.close()
-          raise
+    def recv_msg(self):
+        try:
+            length = self._recv_length()
+            body = self._recv_body(length)
+            self._recv_null()
+            debug_log("received from " + str(self.sock.fileno()) + ": " + body)
+            return body
+        except:
+            self.close()
+            raise
 
-  def send_cmd(self, cmd):
-      try:
-          self.sock.send(cmd + '\0')
-          debug_log("sent to " + str(self.sock.fileno()) + ": " + cmd)
-      except:
-          self.close()
-          raise
+    def recv_cmd(self):
+        try:
+            cmd = ''
+            while True:
+                c = self.sock.recv(1)
+                if c == '':
+                    self.close()
+                    raise EOFError('Socket Closed')
+                elif c == '\0':
+                    debug_log("received from " + str(self.sock.fileno()) + ": " +
+                              cmd)
+                    return cmd
+                else:
+                    cmd += c
+        except:
+            self.close()
+            raise
 
-  def send_msg(self, msg):
-      try:
-          self.sock.send(str(len(msg))+'\0'+msg+'\0')
-          debug_log("sent to " + str(self.sock.fileno()) + ": " + msg)
-      except:
-          self.close()
-          raise
+    def send_cmd(self, cmd):
+        try:
+            self.sock.send(cmd + '\0')
+            debug_log("sent to " + str(self.sock.fileno()) + ": " + cmd)
+        except:
+            self.close()
+            raise
 
-  def get_sockfd(self):
-      if self.sock:
-          return self.sock.fileno()
+    def send_msg(self, msg):
+        try:
+            self.sock.send(str(len(msg)) + '\0' + msg + '\0')
+            debug_log("sent to " + str(self.sock.fileno()) + ": " + msg)
+        except:
+            self.close()
+            raise
+
+    def get_sockfd(self):
+        if self.sock:
+            return self.sock.fileno()
 
 
 config = PhpshConfig()
@@ -864,7 +864,7 @@ tracing_enabled = (config.get_option("Debugging", "LogDBGp") == "yes")
 
 if len(sys.argv) < 5:
     debug_log("dbgp called with %d arguments, 4 required, exiting..." %
-              (len(sys.argv)-1))
+              (len(sys.argv) - 1))
     sys.exit(1)
 
 try:
@@ -877,7 +877,7 @@ try:
         os.close(int(sys.argv[3]))              # read end of "out" pipe
     except OSError:
         pass
-    p_out = os.fdopen(int(sys.argv[4]), "w", 0) # write end of pipe to parent
+    p_out = os.fdopen(int(sys.argv[4]), "w", 0)  # write end of pipe to parent
 except Exception, msg:
     debug_log("Caught an exception while parsing arguments, exiting: " +
               str(msg))
