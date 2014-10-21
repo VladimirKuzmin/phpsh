@@ -18,14 +18,23 @@ $_SERVER['TFBENV'] = 16777216;
 
 // FIXME: www/lib/thrift/packages/falcon/falcon.php is huge
 //  this is probably not the right fix, but we need it for now
-ini_set('memory_limit', ini_get('memory_limit') * 2 . 'M');
+$memory_limit = ini_get('memory_limit');
+switch(strtolower($memory_limit[strlen($memory_limit)-1])) {
+  case 'g':
+    $memory_limit *= 1024;
+  case 'm':
+    $memory_limit *= 1024;
+  case 'k':
+    $memory_limit *= 1024;
+}
+ini_set('memory_limit', $memory_limit * 2);
 
 if (version_compare(PHP_VERSION, '5.0.0', '<')) {
   fwrite(STDERR, 'Fatal error: phpsh requires PHP 5 or greater');
   exit;
 }
 
-$missing = array_diff(array('pcre','posix','tokenizer'),
+$missing = array_diff(array('pcre','tokenizer'),
                       get_loaded_extensions());
 if ($missing) {
   fwrite(STDERR, 'Fatal error: phpsh requires the following extensions: '.
@@ -190,8 +199,12 @@ if (!function_exists('___phpsh___pretty_print')) {
       ___phpsh___parse_dump_assert($dump, $pos, '"', $normal_end_check);
       return ___phpsh___str_lit($str);
     default:
-      throw new Exception('parse error unrecognized type at position '.$pos.
-                          ': '.substr($dump, $pos));
+      if (ini_get('xdebug.cli_color') == '2') {
+        echo $dump;
+      } else {
+        throw new Exception('parse error unrecognized type at position '.$pos.
+                            ': '.substr($dump, $pos));
+      }
     }
   }
   function ___phpsh___parse_dump_arr_lines($x, $dump, &$pos, $arr_len, $depth,
@@ -571,7 +584,7 @@ class ___Phpsh___ {
       }
 
       if ($this->fork_every_command) {
-        $parent_pid = posix_getpid();
+        $parent_pid = getmypid();
         $pid = pcntl_fork();
         $evalue = null;
         if ($pid) {
@@ -588,7 +601,7 @@ class ___Phpsh___ {
           }
 
           // if we are still alive..
-          $childpid = posix_getpid();
+          $childpid = getmypid();
           fwrite($this->_comm_handle, "child $childpid\n");
         }
       } else {

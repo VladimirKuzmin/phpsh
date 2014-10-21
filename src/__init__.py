@@ -217,7 +217,7 @@ class PhpMultiliner:
         ls = [l for l in ls if l.find("PHP Startup:") == -1]
         l = "".join(ls)
         if l:
-            if l.find("unexpected end") != -1:
+            if l.find("unexpected end") != -1 or l.find("unexpected $end") != -1:
                 return self.incomplete, ""
             return self.syntax_error, l
         return self.complete, ""
@@ -479,7 +479,7 @@ Make sure php-config is in your PATH."""
 
         input_rc_file = os.path.join(os.environ["HOME"], ".inputrc")
         if os.path.isfile(input_rc_file):
-            readline.read_init_file(input_rc_file)
+            readline.parse_and_bind(open(input_rc_file).read())
         readline.parse_and_bind("tab: complete")
 
         # persistent readline history
@@ -804,7 +804,16 @@ Type 'e' to open emacs or 'V' to open vim to %s: %s" %
                 # at this point either:
                 #  the php instance died
                 #  select timed out
+
+                # read till the end of the file
                 l = self.comm_file.readline()
+                lastline = l
+                while l.strip() != "":
+                    l = self.comm_file.readline()
+                    if l.strip() != "":
+                        lastline = l
+                l = lastline
+
                 if l.startswith("child"):
                     self.p.poll()
                     os.kill(self.p.pid, signal.SIGHUP)
