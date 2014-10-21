@@ -168,6 +168,9 @@ if (!function_exists('___phpsh___pretty_print')) {
     case 'f':
       ___phpsh___parse_dump_assert($dump, $pos, 'float');
       return ___phpsh___parse_dump_delim_grab($dump, $pos, $normal_end_check);
+    case 'd':
+      ___phpsh___parse_dump_assert($dump, $pos, 'double');
+      return ___phpsh___parse_dump_delim_grab($dump, $pos, $normal_end_check);
     case 'i':
       ___phpsh___parse_dump_assert($dump, $pos, 'int');
       return ___phpsh___parse_dump_delim_grab($dump, $pos, $normal_end_check);
